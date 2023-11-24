@@ -11,40 +11,46 @@ from io import BytesIO
 
 app = FastAPI()
 
+# Function to load models and diffusion configuration
 def load_models(models_path):
-    # Load the transmitter model
     xm = load_model('transmitter')
     xm.load_state_dict(torch.load(os.path.join(models_path, 'xm_model.pth')))
     xm.eval()
 
-    # Load the text300M model
     text300M = load_model('text300M')
     text300M.load_state_dict(torch.load(os.path.join(models_path, 'text300M_model.pth')))
     text300M.eval()
 
-    # Load diffusion configuration
     diffusion_params = torch.load(os.path.join(models_path, 'diffusion_model.pth'))
     diffusion = GaussianDiffusion(**diffusion_params)
 
     return xm, text300M, diffusion
 
+# Generate 3D model from the uploaded 2D image
+# ...
+
+# Fetch the generated 3D images
+@app.get("/get_3d_images")
+def get_3d_images():
+    # Return the URLs of the generated GIFs
+    return {"images": generated_gif_urls}
+
+# ...
+
+# Fetch the generated 3D images
+@app.post("/generate_3d_model")
 def generate_3d_model_from_image(img: UploadFile = File(...), models_path: str = '/content/saved'):
     try:
-        # Save the uploaded image
         img_path = "/tmp/" + img.filename
         with open(img_path, "wb") as buffer:
             buffer.write(img.file.read())
 
-        # Load the models
         xm, text300M, diffusion = load_models(models_path)
-
-        # Load the input image
         img = Image.open(img_path)
 
-        # Sample latents using the input image
         latents = sample_latents(
             batch_size=4,
-            model=text300M,  # Use text300M as the main model
+            model=text300M,
             diffusion=diffusion,
             guidance_scale=15.0,
             model_kwargs=dict(images=[img] * 4),
@@ -58,26 +64,27 @@ def generate_3d_model_from_image(img: UploadFile = File(...), models_path: str =
             s_churn=0,
         )
 
-        render_mode = 'nerf'  # you can change this to 'stf'
+        render_mode = 'nerf'
         size = 128
 
         cameras = create_pan_cameras(size, torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 
-        # Convert to GIF
         images = []
         for i, latent in enumerate(latents):
             frame_images = decode_latent_images(xm, latent, cameras, rendering_mode=render_mode)
             images.extend(frame_images)
 
-        # Create a GIF
         gif_bytes = gif_widget(images)
+
+        # Store the URL or data of the generated GIF
+        generated_gif_urls.append(gif_bytes)
 
         return StreamingResponse(BytesIO(gif_bytes), media_type="image/gif")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

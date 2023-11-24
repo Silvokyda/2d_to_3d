@@ -3,3 +3,4 @@ hypercorn==0.14.4
 torch
 blobfile
 uvicorn
+pillow
