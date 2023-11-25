@@ -1,29 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Image Form</title>
+    <title>Generate 3D Model</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            max-width: 300px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        label {
+            margin-bottom: 5px;
+        }
+
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+
+        progress {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        #generated-model {
+            max-width: 100%;
+            display: none;
+        }
+    </style>
     <script>
         function updateProgress(progress) {
             document.getElementById('progress-bar').value = progress;
         }
+
+        function showGeneratedModel(imageSrc) {
+            document.getElementById('generated-model').src = imageSrc;
+            document.getElementById('generated-model').style.display = 'block';
+        }
     </script>
 </head>
+
 <body>
+    <center>
     <form id="upload-form" action="http://127.0.0.1:8000/generate_3d_model" method="post" enctype="multipart/form-data">
         <label for="img">Choose a 2D image:</label>
         <input type="file" id="img" name="img" accept="image/*">
         <br>
         <input type="submit" value="Generate 3D Model">
     </form>
+    </center>
 
     <!-- Progress bar -->
     <progress id="progress-bar" value="0" max="100"></progress>
 
     <!-- Display the generated 3D model -->
     <img id="generated-model" src="" alt="Generated 3D Model">
-    
+
     <script>
         // WebSocket connection for real-time updates
         const socket = new WebSocket("ws://127.0.0.1:8000/ws");
@@ -33,7 +75,7 @@
             if (data.type === "progress") {
                 updateProgress(data.progress);
             } else if (data.type === "image") {
-                document.getElementById('generated-model').src = data.image;
+                showGeneratedModel(data.image);
                 // Reset the progress bar after completion
                 document.getElementById('progress-bar').value = 0;
             }
@@ -61,4 +103,5 @@
         });
     </script>
 </body>
+
 </html>
