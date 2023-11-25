@@ -84,7 +84,7 @@ async def websocket_endpoint(websocket: WebSocketUpdate):
 async def generate_3d_model_from_image(
     img: UploadFile = File(...),
     models_path: str = '/content/saved',
-    websocket: WebSocketUpdate = Depends()
+    websocket: WebSocketUpdate = None
 ):
     try:
         img_path = "/tmp/" + img.filename
@@ -96,7 +96,7 @@ async def generate_3d_model_from_image(
         render_mode = 'nerf'
         size = 128
 
-        gif_bytes = await generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_mode, size, websocket)
+        gif_bytes=generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_mode, size, websocket)
 
         return StreamingResponse(BytesIO(gif_bytes), media_type="image/gif")
 
