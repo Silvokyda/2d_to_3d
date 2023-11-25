@@ -1,16 +1,12 @@
-from fastapi import FastAPI, File, UploadFile, WebSocket, Depends, HTTPException
+from fastapi import FastAPI, File, UploadFile, WebSocket, Depends, HTTPException, WebSocketDisconnect
+from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
-from PIL import Image
-from shap_e.diffusion.sample import sample_latents
-from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
-from shap_e.models.download import load_model, load_config
-from shap_e.util.notebooks import create_pan_cameras, decode_latent_images, gif_widget
-from starlette.websockets import WebSocketDisconnect, WebSocketState
 from io import BytesIO
-import os
+from diffusers import ShapEImg2ImgPipeline
+from diffusers.utils import export_to_gif
+from PIL import Image
 import torch
-import tempfile
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -20,49 +16,26 @@ class WebSocketUpdate(WebSocket):
     async def on_connect(self, websocket):
         await websocket.accept()
 
-def load_models(models_path, device='cuda'):
-    xm = load_model('transmitter', device=device)
-    model = load_model('text300M', device=device)
-    diffusion = diffusion_from_config(load_config('diffusion'))
-    return xm, model, diffusion
+# Load the ShapEImg2ImgPipeline model
+pipe = ShapEImg2ImgPipeline.from_pretrained("openai/shap-e-img2img", torch_dtype=torch.float16, variant="fp16").to("cuda")
 
-async def generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_mode, size, websocket):
-    img = Image.open(img_path)
+async def generate_3d_model(image_path, pipe, guidance_scale, num_inference_steps, frame_size, websocket):
+    image = Image.open(image_path).resize((256, 256))
 
-    latents = sample_latents(
-        batch_size=4,
-        model=text300M,
-        diffusion=diffusion,
-        guidance_scale=15.0,
-        model_kwargs=dict(images=[img] * 4),
-        progress=True,
-        clip_denoised=True,
-        use_fp16=True,
-        use_karras=True,
-        karras_steps=64,
-        sigma_min=1e-3,
-        sigma_max=160,
-        s_churn=0,
-    )
+    images = pipe(
+        image,
+        guidance_scale=guidance_scale,
+        num_inference_steps=num_inference_steps,
+        frame_size=frame_size,
+    ).images
 
-    images = []
-    for i, latent in enumerate(latents):
-        frame_images = decode_latent_images(xm, latent, cameras, rendering_mode=render_mode)
-        images.extend(frame_images)
-
-        # Send progress to WebSocket
-        await websocket.send_text(f'{{"type": "progress", "progress": {i / 4 * 100}}}')
-
-    # Convert to GIF
-    gif_bytes = gif_widget(images)
+    # Export the resulting images to a GIF
+    gif_path = export_to_gif(images, "generated_3d_image.gif")
 
     # Send generated image path to WebSocket
     await websocket.send_text(f'{{"type": "image", "image": "/get_generated_image"}}')
 
-    return gif_bytes
-
-def get_models(models_path: str = '/content/saved'):
-    return load_models(models_path, device='cuda' if torch.cuda.is_available() else 'cpu')
+    return gif_path
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -76,39 +49,30 @@ async def websocket_endpoint(websocket: WebSocket):
             else:
                 print(f"Received data: {data}")
     except WebSocketDisconnect as e:
-        # Handle the case where the client disconnects
         print(f"WebSocket disconnected: {e}")
-        # Clean up resources if needed
     except Exception as e:
-        # Handle other exceptions
         print(f"Error in WebSocket endpoint: {e}")
         await websocket.close(code=1006)
-        # Clean up resources if needed
 
 @app.post("/generate_3d_model")
 async def generate_3d_model_from_image(
     img: UploadFile = File(...),
-    models: tuple = Depends(get_models),
     websocket: WebSocketUpdate = None
 ):
     try:
-        # Use tempfile to create a secure temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            img_path = os.path.join(temp_dir, img.filename)
-            print(f"Saving file to: {img_path}")
+        # Save the uploaded file to a temporary directory
+        img_path = f"temp_{img.filename}"
+        with open(img_path, "wb") as buffer:
+            buffer.write(img.file.read())
 
-            # Save the uploaded file to the temporary directory
-            with open(img_path, "wb") as buffer:
-                buffer.write(img.file.read())
+        guidance_scale = 3.0
+        num_inference_steps = 64
+        frame_size = 256
 
-            xm, text300M, diffusion = models
-            cameras = create_pan_cameras(128, torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-            render_mode = 'nerf'
-            size = 128
+        gif_path = await generate_3d_model(img_path, pipe, guidance_scale, num_inference_steps, frame_size, websocket)
 
-            gif_bytes = await generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_mode, size, websocket)
-
-            return StreamingResponse(BytesIO(gif_bytes), media_type="image/gif")
+        # Return the generated GIF as a streaming response
+        return StreamingResponse(open(gif_path, "rb"), media_type="image/gif")
 
     except Exception as e:
         print(f"Error in generate_3d_model_from_image endpoint: {e}")
