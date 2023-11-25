@@ -1,10 +1,9 @@
-from fastapi import FastAPI, File, UploadFile, WebSocket, Depends
+from fastapi import FastAPI, File, UploadFile, WebSocket, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
-from fastapi import HTTPException
 from PIL import Image
 from shap_e.diffusion.sample import sample_latents
-from shap_e.diffusion.gaussian_diffusion import GaussianDiffusion
+from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
 from shap_e.models.download import load_model, load_config
 from shap_e.util.notebooks import create_pan_cameras, decode_latent_images, gif_widget
 from starlette.websockets import WebSocketDisconnect, WebSocketState
@@ -12,23 +11,19 @@ from io import BytesIO
 import os
 import torch
 import tempfile
-from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
 
 # WebSocket for real-time updates
 class WebSocketUpdate(WebSocket):
     async def on_connect(self, websocket):
         await websocket.accept()
 
-
 def load_models(models_path, device='cuda'):
     xm = load_model('transmitter', device=device)
     model = load_model('text300M', device=device)
     diffusion = diffusion_from_config(load_config('diffusion'))
-
     return xm, model, diffusion
 
 async def generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_mode, size, websocket):
@@ -66,6 +61,9 @@ async def generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_m
 
     return gif_bytes
 
+def get_models(models_path: str = '/content/saved'):
+    return load_models(models_path, device='cuda' if torch.cuda.is_available() else 'cpu')
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     try:
@@ -80,15 +78,17 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect as e:
         # Handle the case where the client disconnects
         print(f"WebSocket disconnected: {e}")
+        # Clean up resources if needed
     except Exception as e:
         # Handle other exceptions
         print(f"Error in WebSocket endpoint: {e}")
-        await websocket.close(code=1006) 
+        await websocket.close(code=1006)
+        # Clean up resources if needed
 
 @app.post("/generate_3d_model")
 async def generate_3d_model_from_image(
     img: UploadFile = File(...),
-    models_path: str = '/content/saved',
+    models: tuple = Depends(get_models),
     websocket: WebSocketUpdate = None
 ):
     try:
@@ -101,7 +101,7 @@ async def generate_3d_model_from_image(
             with open(img_path, "wb") as buffer:
                 buffer.write(img.file.read())
 
-            xm, text300M, diffusion = load_models(models_path, device='cuda' if torch.cuda.is_available() else 'cpu')
+            xm, text300M, diffusion = models
             cameras = create_pan_cameras(128, torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             render_mode = 'nerf'
             size = 128
