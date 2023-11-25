@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, WebSocket, Depends, HTTPException, WebSocketDisconnect
+from fastapi import FastAPI, File, UploadFile, WebSocket, HTTPException, WebSocketDisconnect
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -17,7 +17,7 @@ class WebSocketUpdate(WebSocket):
         await websocket.accept()
 
 # Load the ShapEImg2ImgPipeline model
-pipe = ShapEImg2ImgPipeline.from_pretrained("openai/shap-e-img2img", torch_dtype=torch.float16, variant="fp16").to("cuda")
+pipe = ShapEImg2ImgPipeline.from_pretrained("openai/shap-e-img2img", torch_dtype=torch.float16, variant="fp16")
 
 async def generate_3d_model(image_path, pipe, guidance_scale, num_inference_steps, frame_size, websocket):
     image = Image.open(image_path).resize((256, 256))
