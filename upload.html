@@ -4,13 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Image Form</title>
+    <script>
+        function updateProgress(progress) {
+            document.getElementById('progress-bar').value = progress;
+        }
+    </script>
 </head>
 <body>
-    <form action="http://127.0.0.1:8000/generate_3d_model" method="post" enctype="multipart/form-data">
+    <form id="upload-form" action="http://127.0.0.1:8000/generate_3d_model" method="post" enctype="multipart/form-data">
         <label for="img">Choose a 2D image:</label>
         <input type="file" id="img" name="img" accept="image/*">
         <br>
         <input type="submit" value="Generate 3D Model">
     </form>
+
+    <!-- Progress bar -->
+    <progress id="progress-bar" value="0" max="100"></progress>
+
+    <!-- Display the generated 3D model -->
+    <img id="generated-model" src="" alt="Generated 3D Model">
+    
+    <script>
+        // WebSocket connection for real-time updates
+        const socket = new WebSocket("ws://127.0.0.1:8000/ws");
+
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            if (data.type === "progress") {
+                updateProgress(data.progress);
+            } else if (data.type === "image") {
+                document.getElementById('generated-model').src = data.image;
+                // Reset the progress bar after completion
+                document.getElementById('progress-bar').value = 0;
+            }
+        };
+
+        // Submit form via WebSocket to track progress
+        document.getElementById('upload-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "http://127.0.0.1:8000/generate_3d_model");
+            xhr.upload.onprogress = function (event) {
+                if (event.lengthComputable) {
+                    const progress = (event.loaded / event.total) * 100;
+                    updateProgress(progress);
+                }
+            };
+
+            xhr.onload = function () {
+                // Handle the response if needed
+            };
+
+            xhr.send(formData);
+        });
+    </script>
 </body>
 </html>
