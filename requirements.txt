@@ -8,3 +8,4 @@ pillow
 python-multipart
 numpy
 pyyaml
+ipywidgets
