@@ -1,4 +1,4 @@
-git+https://github.com/huggingface/diffusers.git
+git+https://github.com/huggingface/diffusers.git@v0.23.1#egg=diffusers
 transformers
 accelerate
 fastapi==0.100.0
