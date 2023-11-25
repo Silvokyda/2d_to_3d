@@ -13,11 +13,13 @@ app = FastAPI()
 
 # Function to load models and diffusion configuration
 def load_models(models_path):
-    xm = load_model('transmitter')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    xm = load_model('transmitter', device=device)
     xm.load_state_dict(torch.load(os.path.join(models_path, 'xm_model.pth')))
     xm.eval()
 
-    text300M = load_model('text300M')
+    text300M = load_model('text300M', device=device)
     text300M.load_state_dict(torch.load(os.path.join(models_path, 'text300M_model.pth')))
     text300M.eval()
 
@@ -26,13 +28,16 @@ def load_models(models_path):
 
     return xm, text300M, diffusion
 
+
 # Define a list variable to store generated GIFs
 generated_gifs = []
 
 @app.post("/generate_3d_model")
-def generate_3d_model_from_image(img: UploadFile = File(...), models_path: str = '/content/saved'):
+def generate_3d_model_from_image(img: UploadFile = File(...), models_path: str = 'shap_e/models'):
     try:
-        img_path = "/tmp/" + img.filename
+        os.makedirs(models_path, exist_ok=True)
+
+        img_path = os.path.join(models_path, img.filename)
         with open(img_path, "wb") as buffer:
             buffer.write(img.file.read())
 
