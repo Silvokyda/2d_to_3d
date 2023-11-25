@@ -12,6 +12,7 @@ from io import BytesIO
 import os
 import torch
 import tempfile
+from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -24,22 +25,11 @@ class WebSocketUpdate(WebSocket):
 
 
 def load_models(models_path, device='cuda'):
-    # Load the transmitter model
     xm = load_model('transmitter', device=device)
-    xm.load_state_dict(torch.load(os.path.join(models_path, 'xm_model.pth')))
-    xm.eval()
+    model = load_model('text300M', device=device)
+    diffusion = diffusion_from_config(load_config('diffusion'))
 
-    # Load the text300M model
-    text300M = load_model('text300M', device=device)
-    text300M.load_state_dict(torch.load(os.path.join(models_path, 'text300M_model.pth')))
-    text300M.eval()
-
-    # Load diffusion configuration
-    diffusion_params = torch.load(os.path.join(models_path, 'diffusion_model.pth'))
-    diffusion = GaussianDiffusion(**diffusion_params)
-
-    return xm, text300M, diffusion
-
+    return xm, model, diffusion
 
 async def generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_mode, size, websocket):
     img = Image.open(img_path)

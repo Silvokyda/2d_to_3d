@@ -21,7 +21,7 @@
     </div>
 
     <script>
-        const websocket = new WebSocket("ws://127.0.0.1:8000/ws");
+        const websocket = new WebSocket("ws://fastapi-production-0c59.up.railway.app/ws");
 
         websocket.onmessage = function (event) {
             const data = JSON.parse(event.data);
@@ -39,7 +39,7 @@
             const formData = new FormData();
             formData.append('img', fileInput.files[0]);
 
-            fetch('http://127.0.0.1:8000/generate_3d_model', {
+            fetch('https://fastapi-production-0c59.up.railway.app/generate_3d_model', {
                 method: 'POST',
                 body: formData,
             })
