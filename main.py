@@ -75,18 +75,20 @@ async def generate_3d_model(img_path, xm, text300M, diffusion, cameras, render_m
     return gif_bytes
 
 
-from fastapi import WebSocket
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        if data == "close":
-            await websocket.close()
-            break
-        else:
-            print(f"Received data: {data}")
+    try:
+        await websocket.accept()
+        while True:
+            data = await websocket.receive_text()
+            if data == "close":
+                await websocket.close()
+                break
+            else:
+                print(f"Received data: {data}")
+    except Exception as e:
+        print(f"Error in WebSocket endpoint: {e}")
+        await websocket.close(code=1006)  
 
 @app.post("/generate_3d_model")
 async def generate_3d_model_from_image(

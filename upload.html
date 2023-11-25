@@ -1,107 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generate 3D Model</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        
-        }
-
-        form {
-            display: flex;
-            flex-direction: column;
-            max-width: 300px;
-            margin-bottom: 20px;
-            align-items: center;
-        }
-
-        label {
-            margin-bottom: 5px;
-        }
-
-        input[type="file"] {
-            margin-bottom: 10px;
-        }
-
-        progress {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
-        #generated-model {
-            max-width: 100%;
-            display: none;
-        }
-    </style>
-    <script>
-        function updateProgress(progress) {
-            document.getElementById('progress-bar').value = progress;
-        }
-
-        function showGeneratedModel(imageSrc) {
-            document.getElementById('generated-model').src = imageSrc;
-            document.getElementById('generated-model').style.display = 'block';
-        }
-    </script>
+    <title>2D to 3D Image Converter</title>
 </head>
-
 <body>
-    <center>
-    <form id="upload-form" action="http://127.0.0.1:8000/generate_3d_model" method="post" enctype="multipart/form-data">
-        <label for="img">Choose a 2D image:</label>
-        <input type="file" id="img" name="img" accept="image/*">
-        <br>
-        <input type="submit" value="Generate 3D Model">
+
+    <h1>2D to 3D Image Converter</h1>
+
+    <form id="uploadForm">
+        <label for="imageInput">Select a 2D image:</label>
+        <input type="file" id="imageInput" accept="image/*" required>
+        <button type="button" onclick="convertTo3D()">Convert to 3D</button>
     </form>
-    </center>
 
-    <!-- Progress bar -->
-    <progress id="progress-bar" value="0" max="100"></progress>
-
-    <!-- Display the generated 3D model -->
-    <img id="generated-model" src="" alt="Generated 3D Model">
+    <div id="resultContainer">
+        <h2>Result:</h2>
+        <div id="result"></div>
+    </div>
 
     <script>
-        // WebSocket connection for real-time updates
-        const socket = new WebSocket("ws://127.0.0.1:8000/ws");
+        const websocket = new WebSocket("ws://fastapi-production-0c59.up.railway.app/ws");
 
-        socket.onmessage = function (event) {
+        websocket.onmessage = function (event) {
             const data = JSON.parse(event.data);
             if (data.type === "progress") {
-                updateProgress(data.progress);
+                // Update progress
+                console.log("Progress: " + data.progress + "%");
             } else if (data.type === "image") {
-                showGeneratedModel(data.image);
-                // Reset the progress bar after completion
-                document.getElementById('progress-bar').value = 0;
+                // Update result
+                document.getElementById("result").innerHTML = `<p><strong>Generated 3D Model:</strong></p><img src="/get_generated_image" alt="Generated 3D Model" width="600" height="400">`;
             }
         };
 
-        // Submit form via WebSocket to track progress
-        document.getElementById('upload-form').addEventListener('submit', function (event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
+        function convertTo3D() {
+            const fileInput = document.getElementById('imageInput');
+            const formData = new FormData();
+            formData.append('img', fileInput.files[0]);
 
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "http://127.0.0.1:8000/generate_3d_model");
-            xhr.upload.onprogress = function (event) {
-                if (event.lengthComputable) {
-                    const progress = (event.loaded / event.total) * 100;
-                    updateProgress(progress);
-                }
-            };
-
-            xhr.onload = function () {
-                // Handle the response if needed
-            };
-
-            xhr.send(formData);
-        });
+            fetch('https://fastapi-production-0c59.up.railway.app/generate_3d_model', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                document.getElementById('result').innerHTML = `<p><strong>Generated 3D Model:</strong></p><img src="${url}" alt="Generated 3D Model" width="600" height="400">`;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p>Error occurred during conversion.</p>';
+            });
+        }
     </script>
-</body>
 
+</body>
 </html>
