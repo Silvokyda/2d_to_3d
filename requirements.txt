@@ -7,3 +7,4 @@ uvicorn
 pillow
 python-multipart
 numpy
+pyyaml
