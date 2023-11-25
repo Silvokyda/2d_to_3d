@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import os
 import torch
 from PIL import Image
@@ -26,18 +26,9 @@ def load_models(models_path):
 
     return xm, text300M, diffusion
 
-# Generate 3D model from the uploaded 2D image
-# ...
+# Define a list variable to store generated GIFs
+generated_gifs = []
 
-# Fetch the generated 3D images
-@app.get("/get_3d_images")
-def get_3d_images():
-    # Return the URLs of the generated GIFs
-    return {"images": generated_gif_urls}
-
-# ...
-
-# Fetch the generated 3D images
 @app.post("/generate_3d_model")
 def generate_3d_model_from_image(img: UploadFile = File(...), models_path: str = '/content/saved'):
     try:
@@ -76,13 +67,17 @@ def generate_3d_model_from_image(img: UploadFile = File(...), models_path: str =
 
         gif_bytes = gif_widget(images)
 
-        # Store the URL or data of the generated GIF
-        generated_gif_urls.append(gif_bytes)
+        # Store the generated GIF in the list
+        generated_gifs.append(gif_bytes)
 
         return StreamingResponse(BytesIO(gif_bytes), media_type="image/gif")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get_3d_images")
+def get_3d_images():
+    return JSONResponse(content={"images": generated_gifs})
 
 
 if __name__ == "__main__":
