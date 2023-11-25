@@ -17,7 +17,8 @@ class WebSocketUpdate(WebSocket):
         await websocket.accept()
 
 # Load the ShapEImg2ImgPipeline model
-pipe = ShapEImg2ImgPipeline.from_pretrained("openai/shap-e-img2img", torch_dtype=torch.float16, variant="fp16")
+pipe = ShapEImg2ImgPipeline.from_pretrained("openai/shap-e-img2img", torch_dtype=torch.float32)
+
 
 async def generate_3d_model(image_path, pipe, guidance_scale, num_inference_steps, frame_size, websocket):
     image = Image.open(image_path).resize((256, 256))
