@@ -5,7 +5,7 @@ import replicate
 app = FastAPI()
 
 # Set Replicate API token
-replicate.set_auth_token('r8_L0LVdqekP16fCX3Z99ySjrk5wVIkai93nBZju')
+replicate = replicate.Client(api_token='r8_L0LVdqekP16fCX3Z99ySjrk5wVIkai93nBZju')
 
 @app.post("/process_image")
 async def process_image(file: UploadFile = File(...)):
