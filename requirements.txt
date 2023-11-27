@@ -1,13 +1,3 @@
-git+https://github.com/huggingface/diffusers.git@v0.23.1#egg=diffusers
-transformers
-accelerate
 fastapi==0.100.0
 hypercorn==0.14.4
-torch
-blobfile
-uvicorn
-pillow
-python-multipart
-numpy
-pyyaml
-ipywidgets
+replicate
