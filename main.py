@@ -7,7 +7,7 @@ import replicate
 app = FastAPI()
 
 # Set Replicate API token
-replicate = replicate.Client(api_token='r8_L0LVdqekP16fCX3Z99ySjrk5wVIkai93nBZju')
+replicate = replicate.Client(api_token='r8_dahC2EblDzX9mfM4L0ZYksDMNQZcdfw2n0yi3')
 
 # Define the data folder to store uploaded files temporarily
 data_folder = "data"
